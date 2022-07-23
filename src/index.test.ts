@@ -9,7 +9,7 @@ describe('proxy', () => {
   });
 
   describe('host matching', () => {
-    test.only('successful match', () => {
+    test('successful match', () => {
       const config = { match: [{ host: 'localhost:3010' }] };
       const req = new Request('http://localhost:3010/test');
       const proxied = proxy(req, config);
@@ -25,9 +25,23 @@ describe('proxy', () => {
     });
 
     test('wildcard host', () => {
-      const config = { match: [{ host: ':sub.example.com' }] };
+      const config = { match: [{ host: '*.example.com' }] };
       expect(proxy(new Request('http://example.com'), config)).not.toBeDefined();
       expect(proxy(new Request('http://subdomain.example.com'), config)).toBeDefined();
+    });
+
+    test('it rewrites the host', () => {
+      const config = {
+        target: {
+          host: 'api.example.com'
+        },
+        match: [
+          { host: 'example.com' }
+        ]
+      };
+
+      const rw = proxy(new Request('http://example.com'), config);
+      expect(rw?.url).toBe('http://api.example.com/');
     });
   });
 });

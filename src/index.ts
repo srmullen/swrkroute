@@ -1,21 +1,21 @@
 import type { Matcher } from './matchers';
+import type { RewriteConfig } from './rewrite';
 import { match } from './matchers';
+import { rewrite } from './rewrite';
 
 interface ProxyConfig {
-  target?: {
-    protocol?: string,
-    host?: string,
-    port?: string
-  },
+  target?: RewriteConfig,
   match: Matcher[]
 }
 
 export function proxy(req: Request, config: ProxyConfig): Request | undefined {
-  // let url = new URL(req.url);
   for (let matcher of config.match) {
     let matches = match(req, matcher);
     if (matches) {
-      return req;
+      if (!config.target) {
+        return req;
+      }
+      return rewrite(req, config.target, matches);
     }
   }
 }
