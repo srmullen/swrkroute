@@ -70,8 +70,13 @@ describe('match', () => {
       expect(match(new Request('http://test.ion'), matcher)).not.toBeDefined();
     });
 
+    test('host with port', () => {
+      const matcher = { host: 'localhost:3000' };
+      expect(match(new Request('http://localhost:3000'), matcher)).toBeDefined();
+    });
+
     test('it matches with parameters', () => {
-      const matcher = { host: ':sub.test.io' };
+      const matcher = { host: '*sub.test.io' };
       expect(match(new Request('http://api.test.io'), matcher)).toBeDefined();
       expect(match(new Request('https://admin.test.io/path'), matcher)).toBeDefined();
 
@@ -80,7 +85,7 @@ describe('match', () => {
     });
 
     test('it returns matched variables', () => {
-      const matcher = { host: ':sub.test.io' };
+      const matcher = { host: '*sub.test.io' };
       let v1 = match(new Request('http://api.test.io'), matcher);
       let v2 = match(new Request('https://admin.test.io/path'), matcher);
 
@@ -89,18 +94,24 @@ describe('match', () => {
     });
 
     test('it can match multiple vars', () => {
-      const matcher = { host: ':sub.:env.test.io' };
+      const matcher = { host: '*sub.*env.test.io' };
       let v1 = match(new Request('http://api.staging.test.io'), matcher);
       let v2 = match(new Request('https://admin.prod.test.io/path'), matcher);
 
       expect(v1).toEqual({ sub: 'api', env: 'staging' });
       expect(v2).toEqual({ sub: 'admin', env: 'prod' });
     });
+
+    test('it matches wildcard domains', () => {
+      const matcher = { host: '*.test.io' };
+      let v1 = match(new Request('http://prod.test.io'), matcher);
+      expect(v1).toEqual({});
+    })
   });
 
   describe('protocol and host matching', () => {
     test('it matches against both host and protocol', () => {
-      const matcher = { protocol: 'https', host: ':sub.test.io' };
+      const matcher = { protocol: 'https', host: '*sub.test.io' };
       expect(match(new Request('http://api.test.io'), matcher)).not.toBeDefined();
       expect(match(new Request('https://hello.api.test.io'), matcher)).not.toBeDefined();
 
@@ -153,7 +164,7 @@ describe('match', () => {
     });
 
     test('it returns variables', () => {
-      const matcher = { protocol: 'https', host: ':env.test.io', path: '/:acc/:entity' };
+      const matcher = { protocol: 'https', host: '*env.test.io', path: '/:acc/:entity' };
       expect(match(new Request('https://prod.test.io/admin/user'), matcher)).toEqual({
         env: 'prod',
         acc: 'admin',
@@ -170,7 +181,7 @@ describe('match', () => {
 
 describe('hostToRegex', () => {
   test('host matcher', () => {
-    let re = hostToRegex(':sub.example.com');
+    let re = hostToRegex('*sub.example.com');
     let match = 'subdomain.example.com'.match(re);
     expect(match).not.toBeNull();
     expect(match?.[0]).toBe('subdomain.example.com');
@@ -178,9 +189,9 @@ describe('hostToRegex', () => {
   });
 
   test('host matcher', () => {
-    let re = hostToRegex(':domain.:tld');
+    let re = hostToRegex('*domain.*tld');
     expect('subdomain.example.com'.match(re)).toBeNull();
-    expect('example.com'.match(re!)).toBeDefined();
+    expect('example.com'.match(re)?.groups).toEqual({ domain: 'example', tld: 'com' });
   });
 });
 

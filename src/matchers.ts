@@ -10,7 +10,8 @@ export interface Matcher {
 export function hostToRegex(host: string): RegExp {
   let hostRE = host
     // $1 get replaced with the first group matched by the replace https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace#specifying_a_string_as_a_parameter
-    .replace(/:([a-zA-Z0-9]+)/g, '(?<$1>[a-zA-Z0-9]+)')
+    .replace(/\*\./g, '(?:[a-zA-Z0-9]+)\.')              // wildcard (non-capturing group)
+    .replace(/\*([a-zA-Z0-9]+)/g, '(?<$1>[a-zA-Z0-9]+)') // named wildcard (named group)
     .replace(/\./g, '\\.');
   let str = `^${hostRE}$`;
   // console.log(str);
