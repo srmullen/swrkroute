@@ -1,26 +1,34 @@
 import { describe, expect, test } from 'vitest';
-import { rewriteHost } from './rewrite';
+import { rewriteProtocol, rewriteHost } from './rewrite';
 
 describe('URL rewriting', () => {
   describe('rewriteHost', () => {
     test('basic rewrite', () => {
       let url = new URL('http://test.io');
-      const rw = rewriteHost(url, 'example.com');
-      expect(rw.host).toBe('example.com');
+      rewriteHost(url, 'example.com');
+      expect(url.host).toBe('example.com');
     });
   
     test('it replaces params', () => {
       let url = new URL('http://staging.test.io');
       // let rw = rewriteHost(url, { host: ':env.test.io' }, { env: 'prod' });
-      let rw = rewriteHost(url, ':env.test.io', { env: 'prod' });
-      expect(rw.host).toBe('prod.test.io');
+      rewriteHost(url, ':env.test.io', { env: 'prod' });
+      expect(url.host).toBe('prod.test.io');
     });
   
     test('it replaces multiple params', () => {
       let url = new URL('http://staging.test.io');
       // let rw = rewriteHost(url, { host: ':sub.:env.:sub.test.io' }, { env: 'prod', sub: 'admin' });
-      let rw = rewriteHost(url, ':sub.:env.:sub.test.io', { env: 'prod', sub: 'admin' });
-      expect(rw.host).toBe('admin.prod.admin.test.io');
+      rewriteHost(url, ':sub.:env.:sub.test.io', { env: 'prod', sub: 'admin' });
+      expect(url.host).toBe('admin.prod.admin.test.io');
+    });
+  });
+
+  describe('rewriteProtocol', () => {
+    test('it changes http to https', () => {
+      const url = new URL('http://example.com');
+      rewriteProtocol(url, 'https');
+      expect(url.toString()).toBe('https://example.com/');
     });
   });
 });

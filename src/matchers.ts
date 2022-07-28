@@ -1,11 +1,4 @@
-type MatchOption = string | string[];
-
-export interface Matcher {
-  method?: MatchOption,
-  protocol?: MatchOption,
-  host?: string,
-  path?: string,
-}
+import type { MatchOption, Matcher, RewriteConfig } from './types';
 
 export function hostToRegex(host: string): RegExp {
   let hostRE = host
@@ -69,7 +62,7 @@ function matchPath(url: URL, option: string) {
 }
 
 // This could return an object that contains information about the match.
-export function match(req: Request, matcher: Matcher): Record<string, string> | undefined {
+export function match(req: Request, matcher: Matcher): RewriteConfig | undefined {
   const url = new URL(req.url);
 
   const matchers = [];
@@ -94,11 +87,8 @@ export function match(req: Request, matcher: Matcher): Record<string, string> | 
     matchers.push(() => matchPath(url, path));
   }
 
-  if (!matchers.length) {
-    return;
-  }
-
-  let vars = {};
+  let target = { ...matcher.target };
+  let params = {};
   let matches = true;
   for (let fn of matchers) {
     let match = fn();
@@ -106,10 +96,27 @@ export function match(req: Request, matcher: Matcher): Record<string, string> | 
       matches = false;
       break;
     }
-    Object.assign(vars, match);
+    Object.assign(params, match);
+  }
+
+  // Recurse into matcher.match
+  if (matches && matcher.match) {
+    matches = false;
+    for (let nested of matcher.match) {
+      const obj = match(req, nested);
+      if (obj) {
+        Object.assign(target, obj.target);
+        Object.assign(params, obj.params);
+        matches = true;
+        break;
+      }
+    }
   }
 
   if (matches) {
-    return vars;
+    return {
+      target,
+      params 
+    };
   }
 }
