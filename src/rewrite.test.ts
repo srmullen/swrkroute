@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { rewriteProtocol, rewriteHost } from './rewrite';
+import { rewriteProtocol, rewriteHost, rewritePath } from './rewrite';
 
 describe('URL rewriting', () => {
   describe('rewriteHost', () => {
@@ -29,6 +29,32 @@ describe('URL rewriting', () => {
       const url = new URL('http://example.com');
       rewriteProtocol(url, 'https');
       expect(url.toString()).toBe('https://example.com/');
+    });
+  });
+
+  describe('pathRewrite', () => {
+    test('if the target path is just a string it should replace the path', () => {
+      const url = new URL('http://example.com/hello');
+      const rw = rewritePath(url, '/world', {});
+      expect(rw.toString()).toBe('http://example.com/world');
+    });
+
+    test('it replaces path vars with params', () => {
+      const url = new URL('http://example.com/hello/world');
+      const rw = rewritePath(url, '/hello/:planet', { planet: 'mars' });
+      expect(rw.toString()).toBe('http://example.com/hello/mars');
+    });
+
+    test('rewrite rules replaces matching regex', () => {
+      const url = new URL('http://example.com/hello/world');
+      const rw = rewritePath(url, { '^/hello': '/goodbye'}, {});
+      expect(rw.toString()).toBe('http://example.com/goodbye/world');
+    });
+
+    test('rewrite ', () => {
+      const url = new URL('http://example.com/hello/world');
+      const rw = rewritePath(url, { '^/hello': '/goodbye/:adj'}, { adj: 'cruel'});
+      expect(rw.toString()).toBe('http://example.com/goodbye/cruel/world');
     });
   });
 });
