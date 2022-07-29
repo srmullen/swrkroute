@@ -11,6 +11,15 @@ Possible uses
 - Reverse Proxy
 - Load balancer
 - Service Worker
+- Mock APIs
+- Cache responses
+- Automatically mock APIs from swagger docs.
+
+TODO
+----
+
+- Header rewrite
+- Response configuration.
 
 Questions
 ---------

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { rewriteProtocol, rewriteHost, rewritePath } from './rewrite';
+import { rewrite, rewriteProtocol, rewriteHost, rewritePath, rewriteHeaders } from './rewrite';
 
 describe('URL rewriting', () => {
   describe('rewriteHost', () => {
@@ -55,6 +55,64 @@ describe('URL rewriting', () => {
       const url = new URL('http://example.com/hello/world');
       const rw = rewritePath(url, { '^/hello': '/goodbye/:adj'}, { adj: 'cruel'});
       expect(rw.toString()).toBe('http://example.com/goodbye/cruel/world');
+    });
+  });
+
+  describe('rewriteHeaders', () => {
+    describe('Add headers', () => {
+      test('add static header', () => {
+        const headers = new Headers();
+        const rw = rewriteHeaders(headers, { 'Authorization': 'Bearer abc123' }, {});
+        expect(rw.get('Authorization')).toBe('Bearer abc123');
+      });
+    });
+
+    describe('Remove header', () => {
+      test('A null value removes the header', () => {
+        const headers = new Headers({ 'Authorization': 'Bearer abc123' });
+        const rw = rewriteHeaders(headers, { 'Authorization': null }, {});
+        expect(rw.get('Authorization')).toBe(null);
+      })
+    });
+  });
+
+  describe('rewrite', () => {
+    test('it rewrites protocol, host, port, method, and headers', () => {
+      const target = {
+        protocol: 'https',
+        host: 'localhost',
+        port: '8787',
+        path: '/api',
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer abc123'
+        }
+      };
+
+      const req = new Request('http://example.com', { 
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      const rw = rewrite(req, target);
+      expect(rw.method).toBe('POST');
+      expect(rw.url).toBe('https://localhost:8787/api');
+      expect(rw.headers.get('Authorization')).toBe('Bearer abc123');
+      expect(rw.headers.get('Accept')).toBe('application/json');
+    });
+
+    test('it preserves the body', async () => {
+      const target = {
+        host: 'localhost:8787'
+      };
+
+      const req = new Request('https://example.com/api', {
+        method: 'POST',
+        body: JSON.stringify({ email: 'test@example.com' })
+      });
+      const rw = rewrite(req, target);
+      expect(await rw.json()).toEqual({ email: 'test@example.com' });
     });
   });
 });

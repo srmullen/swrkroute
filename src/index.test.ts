@@ -18,18 +18,8 @@ describe('proxy', () => {
       expect(proxied?.url).toBe('http://localhost:3010/test');
     });
 
-    // test('failure to match', () => {
-    //   // Does configuring something like this make sense?
-    //   const config = { match: [{ host: '127.0.0.1:5432' }] };
-    //   const req = new Request('http://localhost:3010/test');
-    //   const proxied = proxy(req, config);
-    //   expect(proxied).not.toBeDefined();
-    // });
-
     test('failure to match', () => {
-      // Does configuring something like this make sense?
       const config = { host: '127.0.0.1:5432', match: [{ path: '/test' }] };
-      // const config = { host: 'localhost:3010', match: [{ path: '/test' }] };
       const req = new Request('http://localhost:3010/test');
       const proxied = proxy(req, config);
       expect(proxied).not.toBeDefined();
@@ -85,7 +75,6 @@ describe('proxy', () => {
   });
 
   describe('Use as a router', () => {
-    // TODO: path rewriting
     const config = {
       target: { protocol: 'https', host: 'api.example.com', path: '/' },
       match: [
@@ -100,46 +89,5 @@ describe('proxy', () => {
       const r1 = proxy(new Request('http://test.io/api'), config);
       expect(r1?.url).toBe('https://api.example.com/');
     });
-
-    // interface C1 {
-    //   protocol?: string,
-    //   host?: string,
-    //   port?: string,
-    //   path?: string,
-    //   target?: { protocol?: string, host?: string, port?: number, path?: string },
-    //   match?: C1[]
-    // }
-    // // TODO: Figure out how to do nested matching
-    // const c1: C1 = {
-    //   target: {
-    //     host: ':sub.test.io'
-    //   },
-    //   match: [
-    //     { 
-    //       host: 'test.io', 
-    //       path: '/:sub' 
-    //     }
-    //   ]
-    // };
-
-    // const c2 = [
-    //   // Return a response right away.
-    //   { method: 'GET', path: '/admin', res: { status: 401, body: 'Not Authorized' } },
-    //   // Rewrite path
-    //   { method: 'POST', path: '/admin/*', target: { pathRewrite: { '^/admin': '/secret' } } }
-    // ];
-
-    // const c3 = {
-    //   type: 'host',
-    //   '*.test.io': {
-    //     type: 'path',
-    //     '/:hello': {
-    //       res: {
-    //         status: 200,
-    //         body: 'World'
-    //       }
-    //     }
-    //   }
-    // }
   });
 });

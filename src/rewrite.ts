@@ -62,8 +62,19 @@ export function rewritePath(url: URL, rules: Record<string, string> | string, pa
   return url;
 }
 
+export function rewriteHeaders(headers: Headers, rules: Record<string, string | null>, params: Record<string, string>) {
+  let ret = new Headers(headers);
+  for (let rule of Object.entries(rules)) {
+    if (rule[1] === null) {
+      ret.delete(rule[0]);
+    } else {
+      ret.set(rule[0], rule[1]);
+    }
+  }
+  return ret;
+}
+
 export function rewrite(req: Request, target: Target, params: Record<string, string> = {}) {
-  // URL Rewriting
   let url = new URL(req.url);
 
   if (target.protocol) {
@@ -74,13 +85,20 @@ export function rewrite(req: Request, target: Target, params: Record<string, str
     rewriteHost(url, target.host, params);
   }
 
+  if (target.port) {
+    url.port = target.port;
+  }
+
   if (target.path) {
     rewritePath(url, target.path, params);
   }
 
-  // Header rewriting
-  // TODO
+  const headers = target.headers ? rewriteHeaders(req.headers, target.headers, params) : new Headers(req.headers);
 
-  let rw = new Request(url.toString());
+  let rw = new Request(url.toString(), {
+    method: target.method ?? req.method,
+    headers,
+    body: req.body
+  });
   return rw;
 }

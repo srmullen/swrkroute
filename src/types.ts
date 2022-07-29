@@ -5,6 +5,8 @@ export interface Target {
   host?: string,
   port?: string,
   path?: string,
+  method?: string,
+  headers?: Record<string, string>,
 };
 
 export interface Matcher {

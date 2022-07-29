@@ -10,13 +10,4 @@ export function proxy(req: Request, config: Matcher): Request | undefined {
     }
     return rewrite(req, matches.target, matches.params);
   }
-  // for (let matcher of config.match) {
-  //   let matches = match(req, matcher);
-  //   if (matches) {
-  //     if (!config.target) {
-  //       return req;
-  //     }
-  //     return rewrite(req, config.target, matches);
-  //   }
-  // }
 }
