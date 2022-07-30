@@ -4,7 +4,7 @@ export interface Target {
   protocol?: string,
   host?: string,
   port?: string,
-  path?: string,
+  path?: Record<string, string> | string,
   method?: string,
   headers?: Record<string, string>,
 };
