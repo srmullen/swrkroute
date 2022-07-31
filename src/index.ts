@@ -11,3 +11,22 @@ export function proxy(req: Request, config: Matcher): Request | undefined {
     return rewrite(req, matches.target, matches.params);
   }
 }
+
+export default class Gateway {
+  private config: Matcher;
+
+  constructor(config: Matcher) {
+    this.config = config;
+  }
+
+  async handle(req: Request) {
+    let matches = match(req, this.config);
+    let rw = req;
+    if (matches && matches.target) {
+      rw = rewrite(req, matches.target, matches.params);
+    }
+    const res = await fetch(rw);
+    // TODO: Response rewriting
+    return res;
+  }
+}
