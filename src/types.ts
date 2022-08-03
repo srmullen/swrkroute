@@ -1,5 +1,17 @@
 export type MatchOption = string | string[];
 
+type RequestHandler = (req: Request) => Response;
+
+// export type Context = Record<string, any>;
+export type Context = {
+  params?: Record<string, string>,
+  env?: Environment,
+}
+
+export type Environment = Record<string, any>
+
+export type Handler = (req: Request, ctx: Context, next?: Handler) => Promise<Response> | Response;
+
 export interface Target {
   protocol?: string,
   host?: string,
@@ -14,12 +26,21 @@ export interface Matcher {
   protocol?: MatchOption,
   host?: string,
   path?: string,
+}
 
+export interface MatcherConfig extends Matcher {
   target?: Target,
-  match?: Matcher[],
+  match?: MatcherConfig[],
+  res?: RequestHandler
 }
 
 export interface RewriteConfig {
   target?: Target,
   params?: Record<string, string>,
 }
+
+export interface MatchResult extends RewriteConfig {
+  res?: RequestHandler
+}
+
+// export type MatchResult = Record<string, string>;

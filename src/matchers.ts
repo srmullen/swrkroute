@@ -1,4 +1,4 @@
-import type { MatchOption, Matcher, RewriteConfig } from './types';
+import type { MatchOption, MatcherConfig, MatchResult } from './types';
 
 export function hostToRegex(host: string): RegExp {
   let hostRE = host
@@ -22,25 +22,25 @@ export function pathToRegex(path: string) {
   return RegExp(`^${pathRE}$`);
 }
 
-function matchMethod(reqMethod: string, option: MatchOption) {
-  let matches = false;
+function matchMethod(reqMethod: string, option: MatchOption): Record<string, string> | undefined {
+  let matches;
   if (option === '*') {
-    matches = true;
+    matches = {};
   } else {
     let methods = typeof option === 'string' ? [option] : option;
-    matches = methods.some(method => method.toUpperCase() === reqMethod);
+    matches = methods.some(method => method.toUpperCase() === reqMethod) ? {} : undefined;
   }
   return matches;
 }
 
-function matchProtocol(url: URL, option: MatchOption) {
-  let matches = false;
+function matchProtocol(url: URL, option: MatchOption): Record<string, string> | undefined {
+  let matches;
   if (option === '*') {
-    matches = true;
+    matches = {};
   } else {
     let protocols = typeof option === 'string' ? [option] : option;
     // url.protocol leaves ':' on the protocol. i.e. `http:`
-    matches = protocols.some(protocol => `${protocol}:` === url.protocol);
+    matches = protocols.some(protocol => `${protocol}:` === url.protocol) ? {} : undefined;
   }
   return matches;
 }
@@ -61,8 +61,48 @@ function matchPath(url: URL, option: string) {
   }
 }
 
+export function createMatcher(config: MatcherConfig) {
+  const matchers: ((m: Request, u: URL) => Record<string, string> | undefined)[] = [];
+  if (config.method) {
+    let method = config.method;
+    matchers.push((req: Request, _url: URL) => matchMethod(req.method, method));
+  }
+
+  if (config.protocol) {
+    let protocol = config.protocol;
+    matchers.push((_req: Request, url: URL) => matchProtocol(url, protocol));
+  }
+
+  if (config.host) {
+    let host = config.host;
+    matchers.push((_req: Request, url: URL) => matchHost(url, host));
+  }
+
+  if (config.path) {
+    let path = config.path;
+    matchers.push((_req: Request, url: URL) => matchPath(url, path));
+  }
+
+  return (req: Request): MatchResult | undefined => {
+    let url = new URL(req.url);
+    let params = {};
+    let matches = true;
+    for (let fn of matchers) {
+      let match = fn(req, url);
+      if (!match) {
+        matches = false;
+        break;
+      }
+      Object.assign(params, match);
+    }
+    if (matches) {
+      return { params };
+    }
+  }
+}
+
 // This could return an object that contains information about the match.
-export function match(req: Request, matcher: Matcher): RewriteConfig | undefined {
+export function match(req: Request, matcher: MatcherConfig): MatchResult | undefined {
   const url = new URL(req.url);
 
   const matchers = [];
@@ -116,7 +156,8 @@ export function match(req: Request, matcher: Matcher): RewriteConfig | undefined
   if (matches) {
     return {
       target,
-      params 
+      params,
+      res: matcher.res
     };
   }
 }
