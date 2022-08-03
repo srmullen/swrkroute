@@ -1,13 +1,12 @@
 TODO: Come up with name
 =======================
 
-Request rewriter.
-
 Zero dependencies!
 
 Possible uses
 -------------
 
+- Request rewriting
 - Reverse Proxy
 - Load balancer
 - Service Worker
@@ -17,9 +16,6 @@ Possible uses
 
 TODO
 ----
-
-- Header rewrite
-- Response configuration.
 
 Questions
 ---------

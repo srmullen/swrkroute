@@ -125,7 +125,7 @@ describe('Gateway', () => {
       test('adding a matcher', () => {
         const gateway = new Gateway();
         const handler = vi.fn();
-        gateway.match({ host: 'localhost:8787' }, {}, handler);
+        gateway.match({ host: 'localhost:8787' }, handler);
         gateway.handle(new Request('http://test.io'));
         expect(handler).not.toHaveBeenCalled();
         gateway.handle(new Request('http://localhost:8787'));
@@ -136,8 +136,8 @@ describe('Gateway', () => {
         const handler = vi.fn();
         const gateway = new Gateway();
         const localhost = new Gateway();
-        localhost.match({ path: '/api' }, {}, handler);
-        gateway.match({ host: 'localhost:8787' }, {}, localhost);
+        localhost.match({ path: '/api' }, handler);
+        gateway.match({ host: 'localhost:8787' }, localhost);
         gateway.handle(new Request('http://localhost:8787'));
         gateway.handle(new Request('http://127.0.0.1:8787/api'));
         expect(handler).not.toHaveBeenCalled();
@@ -149,17 +149,17 @@ describe('Gateway', () => {
         const userHandle = vi.fn();
         const accountHandle = vi.fn();
         const api = new Gateway();
-        api.match({ path: '/user' }, {}, userHandle);
+        api.match({ path: '/user' }, userHandle);
 
         const admin = new Gateway();
-        admin.match({ path: '/account' }, {}, accountHandle);
+        admin.match({ path: '/account' }, accountHandle);
 
         const apiSpy = vi.spyOn(api, 'handle');
         const adminSpy = vi.spyOn(admin, 'handle');
 
         const gateway = new Gateway();
-        gateway.match({ host: 'admin.test.io' }, {}, admin);
-        gateway.match({ host: '*.test.io' }, {}, api);
+        gateway.match({ host: 'admin.test.io' }, admin);
+        gateway.match({ host: '*.test.io' }, api);
         // gateway.match({ host: 'admin.test.io' }, {}, admin);
 
         // This matches both hosts but only the api endpoint. Because the admin host is listed first it does not continue to try to match the wildcard host.
@@ -179,8 +179,8 @@ describe('Gateway', () => {
 
       test('handler does not need to be async', async () => {
         const gateway = new Gateway();
-        gateway.match({ path: '/sync' }, {}, () => new Response('Hello'));
-        gateway.match({ path: '/async' }, {}, async () => new Response('async'));
+        gateway.match({ path: '/sync' }, () => new Response('Hello'));
+        gateway.match({ path: '/async' }, async () => new Response('async'));
         const res = await gateway.handle(new Request('http://localhost:8080/sync'));
         expect(await res.text()).toBe('Hello');
         const ares = await gateway.handle(new Request('http://localhost:8080/async'));
@@ -192,7 +192,7 @@ describe('Gateway', () => {
       describe('params', () => {
         test('params are included', async () => {
           const gateway = new Gateway();
-          gateway.match({ path: '/:greeting/:place' }, {}, (req, ctx) => {
+          gateway.match({ path: '/:greeting/:place' }, (req, ctx) => {
             return new Response(`${ctx.params.greeting}, ${ctx.params.place}`);
           });
   
@@ -203,10 +203,10 @@ describe('Gateway', () => {
         test('nested matchers include params from parent matchers', async () => {
           const gateway = new Gateway();
           const subdomain = new Gateway();
-          subdomain.match({ host: '*sub.test.io' }, {}, async (req, ctx) => {
+          subdomain.match({ host: '*sub.test.io' }, async (req, ctx) => {
             return new Response(`${ctx.params.sub} ${ctx.params.entity}`);
-          })
-          gateway.match({ path: '/:entity' }, {}, subdomain);
+          });
+          gateway.match({ path: '/:entity' }, subdomain);
   
           const res = await gateway.handle(new Request('http://api.test.io/account'));
           expect(await res.text()).toBe('api account');
@@ -215,8 +215,8 @@ describe('Gateway', () => {
 
       describe('env', () => {
         test('the env object is merged', async () => {
-          const gateway = new Gateway();
-          gateway.match({ host: 'localhost:3000' }, { target: { hello: 'world' } }, async (req, ctx) => {
+          const gateway = new Gateway({ target: { hello: 'world' } });
+          gateway.match({ host: 'localhost:3000' }, async (req, ctx) => {
             return new Response(JSON.stringify(ctx.env));
           });
           const res = await gateway.handle(new Request('http://localhost:3000'));
@@ -224,78 +224,5 @@ describe('Gateway', () => {
         });
       });
     });
-
-    // describe('middleware', () => {
-    //   const gateway = new Gateway();
-    //   const logSubdomain = (req, ctx, next) => {
-    //     console.log(`Subdomain: ${ctx.params.sub}`);
-    //     return next(req, ctx);
-    //   };
-    //   gateway.match({ host: '*sub.test.io' }, {}, logSubdomain, (req, ctx) => {
-    //     return new Response('Hello');
-    //   });
-    // });
   });
-
-  // describe('api ideation', () => {
-  //   test('connect middleware style', () => {
-  //     const gateway = new Gateway();
-  //     const local = gateway.host('http://localhost:8787');
-  //     // I would prefer the middleware not to have to handle the next function. It should return a 
-  //     // response or carry on to the next middleware/handler.
-  //     // I also would rather not have the res as part of the middleware. I don't like
-  //     // to have the response available before a request has even been made.
-  //     local.get('/user', (req, res, next) => new Response('Success', { status: 200 }));
-  //     local.post('/user', (req, res, next) => new Response('success', { status: 201 }));
-
-  //     const api = gateway.host('http://api.localhost:8787');
-  //     // How to specify request vs. response rewriting
-  //     const api.all(rewrite({ host: 'localhost:8787', path: { '^/': '/api'}}))
-  //   });
-
-  //   test('new style', () => {
-  //     const gateway = new Gateway();
-  //     const local = gateway.host('http://localhost:8787');
-  //     local.get('/user', (req, ctx, next) => new Response('Success', { status: 200 }));
-  //     local.post('/user', (req, ctx, next) => new Response('success', { status: 201 }));
-      
-  //     const api = gateway.host('http://api.localhost:8787');
-  //     // How to specify request vs. response rewriting
-  //     const logger = (req, ctx, next) => {
-  //       console.log(req.url);
-  //       // Cant do connect style middleware without mutable request object. Require req passed to next.
-  //       const res = await next(req);
-  //       console.log(res.status);
-  //       return res;
-  //     };
-  //     const api.all(
-  //       rewrite({ host: 'localhost:8787', path: { '^/': '/api'}}), 
-  //       logger,
-  //       fetch // Could fetch be automatic if there are no calls after next
-  //     );
-  //   });
-  // });
-
-  // test('procedural match', () => {
-  //   const gateway = new Gateway();
-  //   const local = gateway.match({ protocol: 'http', host: 'localhost:8787' });
-  //   local.match({ mathod: 'GET', path: '/user'}, (req, ctx, next) => new Response('Success', { status: 200 }));
-  //   local.match({ method: 'POST', path: '/user'}, (req, ctx, next) => new Response('success', { status: 201 }));
-    
-  //   const api = gateway.match({ host: 'api.localhost:8787' });
-  //   // How to specify request vs. response rewriting
-  //   const logger = (req, ctx, next) => {
-  //     console.log(req.url);
-  //     // Cant do connect style middleware without mutable request object. Require req passed to next.
-  //     const res = await next(req);
-  //     console.log(res.status);
-  //     return res;
-  //   };
-  //   const api.match(
-  //     { method: '*' },
-  //     rewrite({ host: 'localhost:8787', path: { '^/': '/api'}}), 
-  //     logger,
-  //     fetch // Could fetch be automatic if there are no calls after next
-  //   );
-  // });
 });
