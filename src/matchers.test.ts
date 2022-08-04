@@ -1,166 +1,159 @@
 import { describe, test, expect, it } from 'vitest';
-import { match, hostToRegex, pathToRegex } from './matchers';
+import { createMatcher, hostToRegex, pathToRegex } from './matchers';
 
 
 describe('match', () => {
   test('should match if no constraints are provided', () => {
-    expect(match(new Request('http://test.io'), {})).toEqual({ target: {}, params: {}});
-  });
-
-  test('it does not match if leaf matchers are empty', () => {
-    expect(match(new Request('http://test.io'), { match: [] })).not.toBeDefined();
-  });
-
-  test('should match if leaf matcher matches', () => {
-    expect(match(new Request('http://test.io'), { match: [{}] })).toEqual({ target: {}, params: {} });
+    const match = createMatcher({});
+    expect(match(new Request('http://test.io'))).toEqual({ params: {} });
   });
 
   describe('method matching', () => {
     test('it should match a single verb', () => {
-      expect(match(new Request('http://11.io', { method: 'POST' }), { method: 'POST' })).toBeDefined();
-      expect(match(new Request('http://11.io', { method: 'POST' }), { method: 'post' })).toBeDefined();
-      expect(match(new Request('http://11.io', { method: 'POST' }), { method: 'GET' })).not.toBeDefined();
+      const match = createMatcher({ method: 'POST' });
+      expect(match(new Request('http://11.io', { method: 'POST' }))).toBeDefined();
+      expect(match(new Request('http://11.io', { method: 'PATCH' }))).not.toBeDefined();
     });
 
     test('it should match an array of verbs', () => {
-      const matcher = { method: ['POST', 'patch']};
-      expect(match(new Request('http://11.io', { method: 'POST' }), matcher)).toBeDefined();
-      expect(match(new Request('http://11.io', { method: 'PATCH' }), matcher)).toBeDefined();
-      expect(match(new Request('http://11.io', { method: 'DELETE' }), matcher)).not.toBeDefined();
+      const match = createMatcher({ method: ['POST', 'patch']})
+      expect(match(new Request('http://11.io', { method: 'POST' }))).toBeDefined();
+      expect(match(new Request('http://11.io', { method: 'PATCH' }))).toBeDefined();
+      expect(match(new Request('http://11.io', { method: 'DELETE' }))).not.toBeDefined();
     });
 
     test('* matches any verb', () => {
-      const matcher = { method: '*' };
-      expect(match(new Request('http://11.io', { method: 'GET' }), matcher)).toBeDefined();
-      expect(match(new Request('http://11.io', { method: 'POST' }), matcher)).toBeDefined();
-      expect(match(new Request('http://11.io', { method: 'OPTIONS' }), matcher)).toBeDefined();
-      expect(match(new Request('http://11.io', { method: 'HEAD' }), matcher)).toBeDefined();
+      const match = createMatcher({ method: '*' });
+      expect(match(new Request('http://11.io', { method: 'GET' }))).toBeDefined();
+      expect(match(new Request('http://11.io', { method: 'POST' }))).toBeDefined();
+      expect(match(new Request('http://11.io', { method: 'OPTIONS' }))).toBeDefined();
+      expect(match(new Request('http://11.io', { method: 'HEAD' }))).toBeDefined();
     });
   });
 
   describe('protocol matching', () => {
     test('it should match a single protocol', () => {
-      const matcher = { protocol: 'http' };
-      expect(match(new Request('http://11.io'), matcher)).toBeDefined();
-      expect(match(new Request('https://11.io'), matcher)).not.toBeDefined();
+      const match = createMatcher({ protocol: 'http' });
+      expect(match(new Request('http://11.io'))).toBeDefined();
+      expect(match(new Request('https://11.io'))).not.toBeDefined();
     });
 
     test('it should match an array of protocols', () => {
-      const matcher = { protocol: ['http', 'https'] };
-      expect(match(new Request('http://11.io'), matcher)).toBeDefined();
-      expect(match(new Request('https://11.io'), matcher)).toBeDefined();
-      expect(match(new Request('ftp://11.io'), matcher)).not.toBeDefined();
-      expect(match(new Request('ws://11.io'), matcher)).not.toBeDefined();
+      const match = createMatcher({ protocol: ['http', 'https'] });
+      expect(match(new Request('http://11.io'))).toBeDefined();
+      expect(match(new Request('https://11.io'))).toBeDefined();
+      expect(match(new Request('ftp://11.io'))).not.toBeDefined();
+      expect(match(new Request('ws://11.io'))).not.toBeDefined();
     });
 
     test('* should match any protocol', () => {
-      const matcher = { protocol: '*' };
-      expect(match(new Request('http://11.io'), matcher)).toBeDefined();
-      expect(match(new Request('https://11.io'), matcher)).toBeDefined();
-      expect(match(new Request('ftp://11.io'), matcher)).toBeDefined();
-      expect(match(new Request('ws://11.io'), matcher)).toBeDefined();
+      const match = createMatcher({ protocol: '*' });
+      expect(match(new Request('http://11.io'))).toBeDefined();
+      expect(match(new Request('https://11.io'))).toBeDefined();
+      expect(match(new Request('ftp://11.io'))).toBeDefined();
+      expect(match(new Request('ws://11.io'))).toBeDefined();
     });
   });
 
   describe('matching protocol and method', () => {
     test('both need to match', () => {
-      const matcher = { method: 'POST', protocol: 'http' };
-      expect(match(new Request('http://11.io', { method: 'DELETE' }), matcher)).not.toBeDefined();
-      expect(match(new Request('https://11.io', { method: 'POST' }), matcher)).not.toBeDefined();
-      expect(match(new Request('http://11.io', { method: 'POST' }), matcher)).toBeDefined();
+      const match = createMatcher({ method: 'POST', protocol: 'http' });
+      expect(match(new Request('http://11.io', { method: 'DELETE' }))).not.toBeDefined();
+      expect(match(new Request('https://11.io', { method: 'POST' }))).not.toBeDefined();
+      expect(match(new Request('http://11.io', { method: 'POST' }))).toBeDefined();
     });
   });
 
   describe('host matching', () => {
     test('it matches the host', () => {
-      const matcher = { host: 'test.io' };
-      expect(match(new Request('http://test.io'), matcher)).toBeDefined();
-      expect(match(new Request('http://test.io/path'), matcher)).toBeDefined();
+      const match = createMatcher({ host: 'test.io' });
+      expect(match(new Request('http://test.io'))).toBeDefined();
+      expect(match(new Request('http://test.io/path'))).toBeDefined();
 
-      expect(match(new Request('ws://test.ion'), matcher)).not.toBeDefined();
-      expect(match(new Request('http://hello.test.io'), matcher)).not.toBeDefined();
-      expect(match(new Request('http://test.ion'), matcher)).not.toBeDefined();
+      expect(match(new Request('ws://test.ion'))).not.toBeDefined();
+      expect(match(new Request('http://hello.test.io'))).not.toBeDefined();
+      expect(match(new Request('http://test.ion'))).not.toBeDefined();
     });
 
     test('host with port', () => {
-      const matcher = { host: 'localhost:3000' };
-      expect(match(new Request('http://localhost:3000'), matcher)).toBeDefined();
+      const match = createMatcher({ host: 'localhost:3000' });
+      expect(match(new Request('http://localhost:3000'))).toBeDefined();
     });
 
     test('it matches with parameters', () => {
-      const matcher = { host: '*sub.test.io' };
-      expect(match(new Request('http://api.test.io'), matcher)).toBeDefined();
-      expect(match(new Request('https://admin.test.io/path'), matcher)).toBeDefined();
+      const match = createMatcher({ host: '*sub.test.io' });
+      expect(match(new Request('http://api.test.io'))).toBeDefined();
+      expect(match(new Request('https://admin.test.io/path'))).toBeDefined();
 
-      expect(match(new Request('http://test.io'), matcher)).not.toBeDefined();
-      expect(match(new Request('https://hello.admin.test.io/path'), matcher)).not.toBeDefined();
+      expect(match(new Request('http://test.io'))).not.toBeDefined();
+      expect(match(new Request('https://hello.admin.test.io/path'))).not.toBeDefined();
     });
 
     test('it returns matched variables', () => {
-      const matcher = { host: '*sub.test.io' };
-      let v1 = match(new Request('http://api.test.io'), matcher);
-      let v2 = match(new Request('https://admin.test.io/path'), matcher);
+      const match = createMatcher({ host: '*sub.test.io' });
+      let v1 = match(new Request('http://api.test.io'));
+      let v2 = match(new Request('https://admin.test.io/path'));
 
       expect(v1?.params?.sub).toBe('api');
       expect(v2?.params?.sub).toBe('admin');
     });
 
     test('it can match multiple vars', () => {
-      const matcher = { host: '*sub.*env.test.io' };
-      let v1 = match(new Request('http://api.staging.test.io'), matcher);
-      let v2 = match(new Request('https://admin.prod.test.io/path'), matcher);
+      const match = createMatcher({ host: '*sub.*env.test.io' });
+      let v1 = match(new Request('http://api.staging.test.io'));
+      let v2 = match(new Request('https://admin.prod.test.io/path'));
 
-      expect(v1).toEqual({ target: {}, params: { sub: 'api', env: 'staging' } });
-      expect(v2).toEqual({ target: {}, params: { sub: 'admin', env: 'prod' } });
+      expect(v1).toEqual({ params: { sub: 'api', env: 'staging' } });
+      expect(v2).toEqual({ params: { sub: 'admin', env: 'prod' } });
     });
 
     test('it matches wildcard domains', () => {
-      const matcher = { host: '*.test.io' };
-      let v1 = match(new Request('http://prod.test.io'), matcher);
-      expect(v1).toEqual({ target: {}, params: {} });
+      const match = createMatcher({ host: '*.test.io' });
+      let v1 = match(new Request('http://prod.test.io'));
+      expect(v1).toEqual({ params: {} });
     })
   });
 
   describe('protocol and host matching', () => {
     test('it matches against both host and protocol', () => {
-      const matcher = { protocol: 'https', host: '*sub.test.io' };
-      expect(match(new Request('http://api.test.io'), matcher)).not.toBeDefined();
-      expect(match(new Request('https://hello.api.test.io'), matcher)).not.toBeDefined();
+      const match = createMatcher({ protocol: 'https', host: '*sub.test.io' });
+      expect(match(new Request('http://api.test.io'))).not.toBeDefined();
+      expect(match(new Request('https://hello.api.test.io'))).not.toBeDefined();
 
-      expect(match(new Request('https://api.test.io'), matcher)).toBeDefined();
+      expect(match(new Request('https://api.test.io'))).toBeDefined();
     });
   });
 
   describe('path matching', () => {
     test('it matches an exact path', () => {
-      const matcher = { path: '/api/user' };
-      expect(match(new Request('http://test.io/api/user'), matcher)).toBeDefined();
-      expect(match(new Request('http://test.io/api/'), matcher)).not.toBeDefined();
-      expect(match(new Request('http://test.io/api/user/bob'), matcher)).not.toBeDefined();
+      const match = createMatcher({ path: '/api/user' });
+      expect(match(new Request('http://test.io/api/user'))).toBeDefined();
+      expect(match(new Request('http://test.io/api/'))).not.toBeDefined();
+      expect(match(new Request('http://test.io/api/user/bob'))).not.toBeDefined();
     });
 
     test('it matches with path variables', () => {
-      const matcher = { path: '/api/:entity' };
-      expect(match(new Request('http://test.io/api/user'), matcher)).toBeDefined();
-      expect(match(new Request('http://test.io/api/account'), matcher)).toBeDefined();
+      const match = createMatcher({ path: '/api/:entity' });
+      expect(match(new Request('http://test.io/api/user'))).toBeDefined();
+      expect(match(new Request('http://test.io/api/account'))).toBeDefined();
 
-      expect(match(new Request('http://test.io/api/'), matcher)).not.toBeDefined();
-      expect(match(new Request('http://test.io/api/account/profile'), matcher)).not.toBeDefined();
+      expect(match(new Request('http://test.io/api/'))).not.toBeDefined();
+      expect(match(new Request('http://test.io/api/account/profile'))).not.toBeDefined();
     });
 
     test('it matches with trailing wildcards', () => {
-      const matcher = { path: '/api/account/*' };
-      expect(match(new Request('http://test.io/api/account'), matcher)).toBeDefined();
-      expect(match(new Request('http://test.io/api/account/profile'), matcher)).toBeDefined();
+      const match = createMatcher({ path: '/api/account/*' });
+      expect(match(new Request('http://test.io/api/account'))).toBeDefined();
+      expect(match(new Request('http://test.io/api/account/profile'))).toBeDefined();
 
-      expect(match(new Request('http://test.io/api/user'), matcher)).not.toBeDefined();
-      expect(match(new Request('http://test.io/api/'), matcher)).not.toBeDefined();
+      expect(match(new Request('http://test.io/api/user'))).not.toBeDefined();
+      expect(match(new Request('http://test.io/api/'))).not.toBeDefined();
     });
 
     test('returns matched variables', () => {
-      const matcher = { path: '/api/:entity' };
-      let v1 = match(new Request('http://test.io/api/user'), matcher);
-      let v2 = match(new Request('http://test.io/api/account'), matcher);
+      const match = createMatcher({ path: '/api/:entity' });
+      let v1 = match(new Request('http://test.io/api/user'));
+      let v2 = match(new Request('http://test.io/api/account'));
       expect(v1?.params?.entity).toBe('user');
       expect(v2?.params?.entity).toBe('account');
     });
@@ -168,50 +161,29 @@ describe('match', () => {
 
   describe('protocol, host, and path matching', () => {
     test('it matches', () => {
-      const matcher = { protocol: 'https', host: 'test.io', path: '/admin' };
-      expect(match(new Request('https://test.io/admin'), matcher)).toEqual({ target: {}, params: {} });
-      expect(match(new Request('http://test.io/admin'), matcher)).not.toBeDefined();
-      expect(match(new Request('https://sub.test.io/admin'), matcher)).not.toBeDefined();
-      expect(match(new Request('https://test.io/admin/profile'), matcher)).not.toBeDefined();
+      const match = createMatcher({ protocol: 'https', host: 'test.io', path: '/admin' });
+      expect(match(new Request('https://test.io/admin'))).toEqual({ params: {} });
+      expect(match(new Request('http://test.io/admin'))).not.toBeDefined();
+      expect(match(new Request('https://sub.test.io/admin'))).not.toBeDefined();
+      expect(match(new Request('https://test.io/admin/profile'))).not.toBeDefined();
     });
 
     test('it returns variables', () => {
-      const matcher = { protocol: 'https', host: '*env.test.io', path: '/:acc/:entity' };
-      expect(match(new Request('https://prod.test.io/admin/user'), matcher)).toEqual({
-        target: {},
+      const match = createMatcher({ protocol: 'https', host: '*env.test.io', path: '/:acc/:entity' });
+      expect(match(new Request('https://prod.test.io/admin/user'))).toEqual({
         params: {
           env: 'prod',
           acc: 'admin',
           entity: 'user'
         }
       });
-      expect(match(new Request('https://dev.test.io/qa/mapping'), matcher)).toEqual({
-        target: {},
+      expect(match(new Request('https://dev.test.io/qa/mapping'))).toEqual({
         params: {
           env: 'dev',
           acc: 'qa',
           entity: 'mapping'
         }
       });
-    });
-  });
-
-  describe('nested matching', () => {
-    test('it does not match if leaf matcher does not match', () => {
-      const config = { host: 'localhost:5432', match: [{ path: '/test' }] };
-      const r1 = match(new Request('http://localhost:5432'), config);
-      const r2 = match(new Request('http://localhost:5432/test'), config);
-      const r3 = match(new Request('http://localhost:5432/test/hello'), config);
-      expect(r1).not.toBeDefined();
-      expect(r2).toEqual({ target: {}, params: {} });
-      expect(r3).not.toBeDefined();
-    });
-  });
-
-  describe('target', () => {
-    test('it returns the target', () => {
-      const config = { target: { host: 'localhost:8787' } };
-      expect(match(new Request('http://127.0.0.1:5000'), config)).toEqual({ target: { host: 'localhost:8787' }, params: {} });
     });
   });
 });

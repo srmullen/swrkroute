@@ -1,126 +1,151 @@
 import { describe, test, expect, vi } from 'vitest';
-import Gateway, { proxy  } from './';
+import { Gateway, rewrite, connect } from './';
+import type { Context, Handler } from './types';
+
+function responsdWithContext(req: Request, ctx: Context) {
+  return new Response(JSON.stringify(ctx));
+}
+
+const rwMiddleware = (target: Record<string, string>): Handler => (req, ctx, next) => {
+  const rw = rewrite(req, target, ctx.params);
+  return next(rw, ctx);
+}
+
+describe('connect', () => {
+  test('it calls the function', async () => {
+    const fn = vi.fn();
+    const handler = connect(fn);
+    let req = new Request('http://test.io');
+    let ctx = {};
+    await handler(req, ctx);
+    expect(fn).toHaveBeenCalledWith(req, ctx);
+  });
+
+  test('it calls multiple functions', async () => {
+    let fn1: Handler = (req, ctx, next) => {
+      return next(req, ctx);
+    }
+    let fn2: Handler = (req, ctx) => {
+      return new Response('Success');
+    }
+    const handler = connect(fn1, fn2);
+    const res = await handler(new Request('http://test.io'), {});
+    expect(await res.text()).toBe('Success');
+  });
+
+  test('it passes along request and context', async () => {
+    let fn1: Handler = (req, ctx, next) => {
+      return next(rewrite(req, { protocol: 'https', host: 'changed.io' }), { params: { hello: 'world' } });
+    }
+    let fn2: Handler = (req, ctx) => {
+      return new Response(JSON.stringify({
+        url: req.url,
+        ctx
+      }));
+    }
+    const handler = connect(fn1, fn2);
+    const res = await handler(new Request('http://test.io'), {});
+    const json = await res.json();
+    expect(json.url).toBe('https://changed.io/');
+    expect(json.ctx).toEqual({ params: { hello: 'world' } });
+  });
+});
 
 describe('proxy', () => {
   // Is this how it should work? What is the best behavior here?
-  test('Returns undefined if there is no match', () => {
+  test('Returns undefined if there is no match', async () => {
     const req = new Request('http://localhost:3010/test');
-    const proxied = proxy(req, { match: [] });
-    expect(proxied).not.toBeDefined();
+    const gateway = new Gateway();
+    const res = await gateway.handle(req);
+    expect(res.status).toBe(404);
   });
 
   describe('host matching', () => {
-    test('successful match', () => {
-      const config = { protocol: 'http', match: [{ host: 'localhost:3010' }] };
+    test('successful match', async () => {
+      const gateway = new Gateway();
+      gateway.match({ protocol: 'http', host: 'localhost:3010' }, (req, ctx) => {
+        return new Response(req.url);
+      });
       const req = new Request('http://localhost:3010/test');
-      const proxied = proxy(req, config);
-      expect(proxied).toBeDefined();
-      expect(proxied?.url).toBe('http://localhost:3010/test');
+      const res = await gateway.handle(req);
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe('http://localhost:3010/test');
     });
 
-    test('failure to match', () => {
-      const config = { host: '127.0.0.1:5432', match: [{ path: '/test' }] };
+    test('failure to match', async () => {
+      const gateway = new Gateway();
+      const router = new Gateway();
+      gateway.match({ host: '127.0.0.1:5432' }, router);
+      router.match({ path: '/test' }, (req, ctx) => {
+        return new Response('hello');
+      });
+      
       const req = new Request('http://localhost:3010/test');
-      const proxied = proxy(req, config);
-      expect(proxied).not.toBeDefined();
+      const res = await gateway.handle(req);
+      expect(res.status).toBe(404);
     });
 
-    test('wildcard host', () => {
-      const config = { match: [{ host: '*.example.com' }] };
-      expect(proxy(new Request('http://example.com'), config)).not.toBeDefined();
-      expect(proxy(new Request('http://subdomain.example.com'), config)).toBeDefined();
+    test('wildcard host', async () => {
+      const gateway = new Gateway();
+      gateway.match({ host: '*.example.com' }, responsdWithContext);
+      const r1 = await gateway.handle(new Request('http://example.com'));
+      const r2 = await gateway.handle(new Request('http://subdomain.example.com'))
+      expect(r1.status).toBe(404);
+      expect(r2.status).toBe(200);
     });
 
-    test('it rewrites the host', () => {
-      const config = {
-        target: {
-          host: 'api.example.com'
-        },
-        match: [
-          { host: 'example.com' }
-        ]
-      };
+    test('it rewrites the host', async () => {
+      const gateway = new Gateway({ target: {
+        host: 'api.example.com'
+      }});
+      const rwMiddleware: Handler = (req, ctx, next) => {
+        const rw = rewrite(req, ctx.env.target, ctx.params);
+        return next(rw, ctx);
+      }
+      gateway.match({ host: 'example.com' }, connect(rwMiddleware, (req, ctx) => {
+        return new Response(JSON.stringify({
+          url: req.url
+        }))
+      }));
 
-      const rw = proxy(new Request('http://example.com'), config);
-      expect(rw?.url).toBe('http://api.example.com/');
-    });
-  });
-
-  describe('top-level matcher', () => {
-    test('it matches host', () => {
-      const config = { host: 'test.io', target: { host: 'api.test.io' } };
-      const rw = proxy(new Request('http://test.io'), config);
-      expect(rw?.url).toBe('http://api.test.io/');
+      const res = await gateway.handle(new Request('http://example.com'))
+      expect(await res.json()).toEqual({ url: 'http://api.example.com/' });
     });
   });
 
   describe('nested rewriting', () => {
-    test('it rewrites with the nested target', () => {
-      const config = { match: [{ target: { host: 'localhost:8787' } }]};
-      const rw = proxy(new Request('http://api.worker.io'), config);
-      expect(rw?.url).toBe('http://localhost:8787/');
-    });
-
-    test('it overwrites a previous target property', () => {
-      const config = { target: { host: 'localhost:5555' }, match: [{ target: { host: 'localhost:4444' } }] };
-      const rw = proxy(new Request('http://api.worker.io'), config);
-      expect(rw?.url).toBe('http://localhost:4444/');
-    });
-
-    test('it merges different properties', () => {
-      const config = { target: { host: 'localhost:5555' }, match: [{ target: { protocol: 'https' } }] };
-      const rw = proxy(new Request('http://api.worker.io'), config);
-      expect(rw?.url).toBe('https://localhost:5555/');
+    test('it rewrites with the nested target', async () => {
+      const gateway = new Gateway();
+      const nested = new Gateway();
+      gateway.match({ protocol: 'http' }, nested);
+      nested.match({}, connect(rwMiddleware({ protocol: 'https', host: 'localhost:8787' }), (req, ctx) => {
+        return new Response(JSON.stringify({ url: req.url }));
+      }));
+      const res = await gateway.handle(new Request('http://api.worker.io'));
+      expect(await res.json()).toEqual({ url: 'https://localhost:8787/' });
     });
   });
 
   describe('Use as a router', () => {
-    const config = {
-      target: { protocol: 'https', host: 'api.example.com', path: '/' },
-      match: [
-        { method: 'GET', path: '/api' },
-        { method: 'POST', path: '/api' },
-        { method: 'PUT', path: '/api' },
-        { method: 'DELETE', path: '/api' },
-      ]
-    };
-
-    test('it rewrites requests to /api to the api host', () => {
-      const r1 = proxy(new Request('http://test.io/api'), config);
-      expect(r1?.url).toBe('https://api.example.com/');
+    test('it rewrites requests to /api to the api host', async () => {
+      const gateway = new Gateway();
+      gateway.match(
+        { method: ['GET', 'POST', 'PUT', 'DELETE'], path: '/api' }, 
+        connect(
+          rwMiddleware({ protocol: 'https', host: 'api.example.com', path: '/' }),
+          (req, ctx) => {
+            return new Response(JSON.stringify({ url: req.url }));
+          }
+        ));
+      // const r1 = proxy(new Request('http://test.io/api'), config);
+      const res = await gateway.handle(new Request('http://test.io/api'));
+      expect(await res.json()).toEqual({ url: 'https://api.example.com/' });
     });
   });
 });
 
 describe('Gateway', () => {
   describe('res handlers', () => {
-    // test('it calls the handler', async () => {
-    //   const handler = vi.fn();
-    //   const gateway = new Gateway({
-    //     res: handler
-    //   });
-    //   await gateway.handle(new Request('http://localhost:8787'));
-    //   expect(handler).toHaveBeenCalled();
-    // });
-  
-    // test.skip('nested handlers take precendence', async () => {
-    //   const h1 = vi.fn();
-    //   const h2 = vi.fn();
-    //   const gateway = new Gateway({
-    //     res: h1,
-    //     match: [
-    //       { path: '/api', res: h2 }
-    //     ]
-    //   });
-
-    //   await gateway.handle(new Request('http://localhost:8787'));
-    //   expect(h1).toHaveBeenCalledOnce();
-    //   expect(h2).not.toHaveBeenCalled();
-    //   await gateway.handle(new Request('http://localhost:8787/api'));
-    //   expect(h1).toHaveBeenCalledOnce();
-    //   expect(h2).toHaveBeenCalledOnce();
-    // });
-
     describe('procedural setup', () => {
       test('adding a matcher', () => {
         const gateway = new Gateway();

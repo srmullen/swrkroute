@@ -102,62 +102,62 @@ export function createMatcher(config: MatcherConfig) {
 }
 
 // This could return an object that contains information about the match.
-export function match(req: Request, matcher: MatcherConfig): MatchResult | undefined {
-  const url = new URL(req.url);
+// export function match(req: Request, matcher: MatcherConfig): MatchResult | undefined {
+//   const url = new URL(req.url);
 
-  const matchers = [];
+//   const matchers = [];
   
-  if (matcher.method) {
-    let method = matcher.method;
-    matchers.push(() => matchMethod(req.method, method));
-  }
+//   if (matcher.method) {
+//     let method = matcher.method;
+//     matchers.push(() => matchMethod(req.method, method));
+//   }
 
-  if (matcher.protocol) {
-    let protocol = matcher.protocol;
-    matchers.push(() => matchProtocol(url, protocol));
-  }
+//   if (matcher.protocol) {
+//     let protocol = matcher.protocol;
+//     matchers.push(() => matchProtocol(url, protocol));
+//   }
 
-  if (matcher.host) {
-    let host = matcher.host;
-    matchers.push(() => matchHost(url, host));
-  }
+//   if (matcher.host) {
+//     let host = matcher.host;
+//     matchers.push(() => matchHost(url, host));
+//   }
 
-  if (matcher.path) {
-    let path = matcher.path;
-    matchers.push(() => matchPath(url, path));
-  }
+//   if (matcher.path) {
+//     let path = matcher.path;
+//     matchers.push(() => matchPath(url, path));
+//   }
 
-  let target = { ...matcher.target };
-  let params = {};
-  let matches = true;
-  for (let fn of matchers) {
-    let match = fn();
-    if (!match) {
-      matches = false;
-      break;
-    }
-    Object.assign(params, match);
-  }
+//   let target = { ...matcher.target };
+//   let params = {};
+//   let matches = true;
+//   for (let fn of matchers) {
+//     let match = fn();
+//     if (!match) {
+//       matches = false;
+//       break;
+//     }
+//     Object.assign(params, match);
+//   }
 
-  // Recurse into matcher.match
-  if (matches && matcher.match) {
-    matches = false;
-    for (let nested of matcher.match) {
-      const obj = match(req, nested);
-      if (obj) {
-        Object.assign(target, obj.target);
-        Object.assign(params, obj.params);
-        matches = true;
-        break;
-      }
-    }
-  }
+//   // Recurse into matcher.match
+//   if (matches && matcher.match) {
+//     matches = false;
+//     for (let nested of matcher.match) {
+//       const obj = match(req, nested);
+//       if (obj) {
+//         Object.assign(target, obj.target);
+//         Object.assign(params, obj.params);
+//         matches = true;
+//         break;
+//       }
+//     }
+//   }
 
-  if (matches) {
-    return {
-      target,
-      params,
-      res: matcher.res
-    };
-  }
-}
+//   if (matches) {
+//     return {
+//       target,
+//       params,
+//       res: matcher.res
+//     };
+//   }
+// }

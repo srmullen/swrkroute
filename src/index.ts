@@ -1,25 +1,19 @@
-import type { MatcherConfig, Matcher, Context, Handler, MatchResult, Environment } from './types';
-import { match, createMatcher } from './matchers';
-import { rewrite } from './rewrite';
+import type { Matcher, Context, Handler, GatewayMatcher, Environment } from './types';
+import { createMatcher } from './matchers';
 
 export { rewrite } from './rewrite';
 
-export function proxy(req: Request, config: MatcherConfig): Request | undefined {
-  let matches = match(req, config);
-  if (matches) {
-    if (!matches.target) {
-      return req;
-    }
-    return rewrite(req, matches.target, matches.params);
+export function connect(...args: Handler[]): Handler {
+  if (args.length === 1) {
+    return args[0];
+  }
+  const [fn, ...rest] = args;
+  return (req: Request, ctx: Context) => {
+    return fn(req, ctx, connect(...rest));
   }
 }
 
-type GatewayMatcher = [
-  (req: Request) => MatchResult | undefined, // Matching function
-  Handler
-];
-
-export default class Gateway {
+export class Gateway {
   matchers: Array<GatewayMatcher>;
   env: Environment;
 
@@ -42,7 +36,8 @@ export default class Gateway {
       if (matches) {
         let handler = matcher[1];
         const params = { ...ctx.params, ...matches.params };
-        const env = { ...this.env, ...matcher[1] };
+        // const env = { ...this.env, ...matcher[1] };
+        const env = { ...ctx.env, ...this.env };
         return handler(req, { ...ctx, params, env });
       }
     }

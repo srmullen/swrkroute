@@ -43,4 +43,7 @@ export interface MatchResult extends RewriteConfig {
   res?: RequestHandler
 }
 
-// export type MatchResult = Record<string, string>;
+export type GatewayMatcher = [
+  (req: Request) => MatchResult | undefined, // Matching function
+  Handler
+];
