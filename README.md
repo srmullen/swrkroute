@@ -19,6 +19,9 @@ Possible uses
 TODO
 ----
 
+- CORS middleware
+- Better types / Generics
+
 Questions
 ---------
 

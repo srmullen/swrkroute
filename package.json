@@ -1,7 +1,7 @@
 {
-  "name": "webproxy",
-  "version": "1.0.0",
-  "description": "",
+  "name": "swrkroute",
+  "version": "0.1.0",
+  "description": "Routing for service worker environments. Pronounced Sauerkraut",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
