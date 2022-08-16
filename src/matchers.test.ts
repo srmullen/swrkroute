@@ -111,7 +111,35 @@ describe('match', () => {
       const match = createMatcher({ host: '*.test.io' });
       let v1 = match(new Request('http://prod.test.io'));
       expect(v1).toEqual({ params: {} });
-    })
+    });
+
+    test('wildcard matches hosts with "-" characters', () => {
+      const wildcardMatch = createMatcher({ host: '*.test.io' });
+      expect(wildcardMatch(new Request('http://-u.test.io'))).toEqual({ params: {} });
+      expect(wildcardMatch(new Request('http://u-u.test.io'))).toEqual({ params: {} });
+      expect(wildcardMatch(new Request('http://u-.test.io'))).toEqual({ params: {} });
+    });
+
+    test('named wildcard matches hosts with "-" characters', () => {
+      const wildcardMatch = createMatcher({ host: '*sub.test.io' });
+      expect(wildcardMatch(new Request('http://-u.test.io'))).toEqual({ params: { sub: '-u' } });
+      expect(wildcardMatch(new Request('http://u-u.test.io'))).toEqual({ params: { sub: 'u-u' } });
+      expect(wildcardMatch(new Request('http://u-.test.io'))).toEqual({ params: { sub: 'u-' } });
+    });
+
+    test('wildcard matches hosts with "_" characters', () => {
+      const wildcardMatch = createMatcher({ host: '*.test.io' });
+      expect(wildcardMatch(new Request('http://_u.test.io'))).toEqual({ params: {} });
+      expect(wildcardMatch(new Request('http://u_u.test.io'))).toEqual({ params: {} });
+      expect(wildcardMatch(new Request('http://u_.test.io'))).toEqual({ params: {} });
+    });
+
+    test('named wildcard matches hosts with "_" characters', () => {
+      const wildcardMatch = createMatcher({ host: '*sub.test.io' });
+      expect(wildcardMatch(new Request('http://_u.test.io'))).toEqual({ params: { sub: '_u' } });
+      expect(wildcardMatch(new Request('http://u_u.test.io'))).toEqual({ params: { sub: 'u_u' } });
+      expect(wildcardMatch(new Request('http://u_.test.io'))).toEqual({ params: { sub: 'u_' } });
+    });
   });
 
   describe('protocol and host matching', () => {
