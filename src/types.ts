@@ -24,6 +24,7 @@ export interface Target {
 export interface Matcher {
   method?: MatchOption,
   protocol?: MatchOption,
+  port?: string,
   host?: string,
   path?: string,
 }

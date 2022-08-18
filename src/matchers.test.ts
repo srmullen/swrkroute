@@ -55,6 +55,14 @@ describe('match', () => {
     });
   });
 
+  describe('port matching', () => {
+    test('it should match the port', () => {
+      const match = createMatcher({ port: '8080' });
+      expect(match(new Request('http://localhost:8080'))).toBeDefined();
+      expect(match(new Request('http://localhost:3000'))).not.toBeDefined();
+    });
+  });
+
   describe('matching protocol and method', () => {
     test('both need to match', () => {
       const match = createMatcher({ method: 'POST', protocol: 'http' });

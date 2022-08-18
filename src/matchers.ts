@@ -53,6 +53,10 @@ function matchHost(url: URL, option: string) {
   }
 }
 
+function matchPort(url: URL, option: string) {
+  return url.port === option ? {} : undefined;
+}
+
 function matchPath(url: URL, option: string) {
   const re = pathToRegex(option);
   const match = url.pathname.match(re);
@@ -76,6 +80,11 @@ export function createMatcher(config: MatcherConfig) {
   if (config.host) {
     let host = config.host;
     matchers.push((_req: Request, url: URL) => matchHost(url, host));
+  }
+
+  if (config.port) {
+    let port = config.port;
+    matchers.push((_req: Request, url: URL) => matchPort(url, port));
   }
 
   if (config.path) {
