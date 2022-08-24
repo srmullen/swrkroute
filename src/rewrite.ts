@@ -74,7 +74,17 @@ export function rewriteHeaders(headers: Headers, rules: Record<string, string | 
   return ret;
 }
 
-export function rewrite(req: Request, target: Target, params: Record<string, string> = {}) {
+async function createRequestBody(req: Request) {
+  const contentType = req.headers.get('Content-Type');
+  if (contentType?.includes('multipart/form-data')) {
+    return await req.text()
+  } else {
+    return req.body;
+  }
+  // return req.body;
+}
+
+export async function rewrite(req: Request, target: Target, params: Record<string, string> = {}) {
   let url = new URL(req.url);
 
   if (target.protocol) {
@@ -93,12 +103,14 @@ export function rewrite(req: Request, target: Target, params: Record<string, str
     rewritePath(url, target.path, params);
   }
 
+  const body = await createRequestBody(req);
+  
   const headers = target.headers ? rewriteHeaders(req.headers, target.headers, params) : new Headers(req.headers);
 
   let rw = new Request(url.toString(), {
     method: target.method ?? req.method,
     headers,
-    body: req.body
+    body: body
   });
   return rw;
 }

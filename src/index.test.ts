@@ -6,8 +6,8 @@ function responsdWithContext(req: Request, ctx: Context) {
   return new Response(JSON.stringify(ctx));
 }
 
-const rwMiddleware = (target: Record<string, string>): Handler => (req, ctx, next) => {
-  const rw = rewrite(req, target, ctx.params);
+const rwMiddleware = (target: Record<string, string>): Handler => async (req, ctx, next) => {
+  const rw = await rewrite(req, target, ctx.params);
   return next(rw, ctx);
 }
 
@@ -34,8 +34,8 @@ describe('connect', () => {
   });
 
   test('it passes along request and context', async () => {
-    let fn1: Handler = (req, ctx, next) => {
-      return next(rewrite(req, { protocol: 'https', host: 'changed.io' }), { params: { hello: 'world' } });
+    let fn1: Handler = async (req, ctx, next) => {
+      return next(await rewrite(req, { protocol: 'https', host: 'changed.io' }), { params: { hello: 'world' } });
     }
     let fn2: Handler = (req, ctx) => {
       return new Response(JSON.stringify({
@@ -98,8 +98,8 @@ describe('proxy', () => {
       const gateway = new Gateway({ target: {
         host: 'api.example.com'
       }});
-      const rwMiddleware: Handler = (req, ctx, next) => {
-        const rw = rewrite(req, ctx.env.target, ctx.params);
+      const rwMiddleware: Handler = async (req, ctx, next) => {
+        const rw = await rewrite(req, ctx.env.target, ctx.params);
         return next(rw, ctx);
       }
       gateway.match({ host: 'example.com' }, connect(rwMiddleware, (req, ctx) => {
